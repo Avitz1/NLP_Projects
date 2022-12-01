@@ -1,4 +1,3 @@
-import json
 import re
 import string
 import sys
@@ -15,17 +14,18 @@ class Token:
         self.serial_num = serial_num
 
 class Sentence:
-    def __init__(self, text, serial_num):
+    def __init__(self, text, serial_num, add_begin_end_tokens=True):
         self.text = text
         self.tokens = []
         self.num_of_punc = 0
         self.num_of_num = 0
         self.serial_num = serial_num
+        self.add_begin_end_tokens = add_begin_end_tokens
         self.special_expressions = ['transl.', 'lit.', 'U.S.A.', 'U.S.', 'Dr. ', 'B.Sc.', 'B.A.', 'Ph.D', 'Mr.', 'Ms.', 'Mrs.', 'etc.',
                                     'P.M.',
                                     'A.M.', 'M.D.', 'i.e.', 'mt.', 'no.', 'Sr.', 'vol.', 'vs.']
-        self.restore_abbreviations()
         self.divide_tokens()
+        self.restore_abbreviations()
         for token in self.tokens:
             if token.punc:
                 self.num_of_punc += 1
@@ -40,6 +40,9 @@ class Sentence:
     # senteces will be divided based on any special characters
     def divide_tokens(self):
         divided_text = re.split("([\s\W])", self.text)
+        if self.add_begin_end_tokens:
+            divided_text.insert(0, '<s>')
+            # divided_text.append('</s>')
         for i in range(len(divided_text)):
             if divided_text[i] != '' and divided_text[i] != ' ':
                 self.tokens += [Token(divided_text[i].strip(), i)]
@@ -48,31 +51,37 @@ class Sentence:
         for token in self.tokens:
             print(token.token, end=' ')
 
+    def list_tokens(self):
+        return [token.token for token in self.tokens]
+
 
 class Passage:
-    def __init__(self, name, text):
+    def __init__(self, name, text, add_begin_end_tokens=True):
         self.name = name
         self.text = name + ". " + text
         self.sentences = []
         self.num_of_tokens = 0
+        self.add_begin_end_tokens = add_begin_end_tokens
         self.divide_sentences()
+
 
     def divide_sentences(self):
         divided_text = re.split(r'(?<![\d+\.+\d+][A-Z][a-z])(?<!\w\.\w.)(?<=\.|\?|\!)\s', self.text)
         for i in range(len(divided_text)):
             if divided_text[i] != '' and divided_text[i] != ' ':
-                self.sentences += [Sentence(divided_text[i], i)]
+                self.sentences += [Sentence(divided_text[i], i, self.add_begin_end_tokens)]
 
     def print_passage(self):
         for sentence in self.sentences:
             sentence.print_sentence()
             print("\n", end="")
 class Corpus:
-    def __init__(self, corpus_dir):
+    def __init__(self, corpus_dir, add_begin_end_tokens=True):
         self.passages = []
         self.corpus_dir = corpus_dir
         self.text = ""
         self.num_of_sentences = 0
+        self.add_begin_end_tokens = add_begin_end_tokens
         self.special_expressions = ['transl.', 'lit.', 'U.S.A.', 'U.S.', 'Dr. ', 'B.Sc.', 'B.A.', 'Ph.D', 'Mr.', 'Ms.', 'Mrs.', 'etc.',
                                     'P.M.',
                                     'A.M.', 'M.D.', 'i.e.', 'mt.', 'no.', 'Sr.', 'vol.', 'vs.'] # Abbreviated expressions
@@ -99,10 +108,10 @@ class Corpus:
                 i += 1
                 continue
             if i < len(divided_text)-1 and len(divided_text[i+1]) > 50:
-                self.passages += [Passage(divided_text[i], divided_text[i+1].replace('\n', ''))]
+                self.passages += [Passage(divided_text[i], divided_text[i+1].replace('\n', ''), self.add_begin_end_tokens)]
                 i += 2
             else:
-                self.passages += [Passage(divided_text[i], '')]
+                self.passages += [Passage(divided_text[i], '', self.add_begin_end_tokens)]
                 i += 1
 
     def clean_text(self):
@@ -114,7 +123,8 @@ class Corpus:
                                    u"\u2640-\u2642"  u"\u2600-\u2B55" u"\u200d" u"\u23cf"      u"\u23e9"    u"\u231a"  u"\ufe0f"  # dingbats 
                                    u"\u3030"    "]+", re.UNICODE)
         self.text = re.sub(emoji_pattern, '', self.text)
-
+        display_pattern = r'(\s{4,}.+\s{4,})+{\\displaystyle.+}'
+        self.text = re.sub(display_pattern, '', self.text)
         # remove http, uml and url
         self.text = re.sub(r'www\S+', '', self.text)
         self.text = re.sub(r'http\S+', '', self.text)
@@ -141,31 +151,26 @@ class Corpus:
             passage.print_passage()
             print("\n\n", end="")
 
-class CustomEncoder(json.JSONEncoder):
-    def default(self, obj):
-            return obj.__dict__
-
-    def writeJson(self, obj):
-        json_file = json.dumps(self, cls=CustomEncoder, indent=4)
-        json
-        with open('output.json', 'w', encoding="utf-8") as f:
-            f.write(json_file)
-            f.close()
+    def list_sentences(self):
+        sentences = []
+        for passage in self.passages:
+            for sentence in passage.sentences:
+                    sentences.append([token.token for token in sentence.tokens])
+        return sentences
 
 if __name__ == "__main__":
 
-    corpus_dir = argv[1]    # The directory in which the Wiki files are, full pathname
-    output_file = argv[2]   # The text file that the corpus is written onto, full pathname
-    # output_file = "output.txt"
-    # corpus_dir = "corpus_dir"
+    # corpus_dir = argv[1]    # The directory in which the Wiki files are, full pathname
+    # output_file = argv[2]   # The text file that the corpus is written onto, full pathname
+    output_file = "output.txt"
+    corpus_dir = "corpus_dir"
 
-    corpus = Corpus(corpus_dir);
+    corpus = Corpus(corpus_dir, add_begin_end_tokens=True)
 
 
     with open(output_file, 'w', encoding='utf8') as f:
         sys.stdout = f
         corpus.print_corpus()
 
-    # # corpus.write_json()
 
 
