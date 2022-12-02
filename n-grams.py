@@ -21,12 +21,9 @@ class NgramModel:
         self.sentences = corpus.list_sentences()
         for sentence in self.sentences:
             for i in range(1 if self.n == 1 else 0, len(sentence)):
-                # if i == 1:
-                #     if sentence[i] and sentence[i][0] not in string.punctuation:
-                #         sentence[i] = sentence[i][0].lower() + sentence[i][1:]
-
+                if i == 1 and sentence[1].isalpha():
+                    sentence[1] = sentence[1].lower()
                 token = sentence[i]
-
                 self.vocab.add(token)
                 context = (tuple(sentence[max(0, i - self.n + 1):i]), sentence[i])
                 if context not in self.context_counts:
@@ -45,7 +42,7 @@ class NgramModel:
     def random_text(self, token_count, context=tuple()):
         text = []
         opening_quotes = 1
-        for i in range(1, token_count):
+        for i in range(token_count):
             next_token = self.random_token(context)
             if next_token == []:
                 return ' '.join(text)
@@ -71,6 +68,8 @@ class NgramModel:
                 text.append(next_token)
             if self.n > 1:
                 context = context[len(context)-1:] + tuple([next_token]) if self.n == 3 else tuple([next_token])
+        if text[0].isalpha():
+            text[0] = text[0][0].upper() + text[0][1:]
         return ' '.join(text)
 
     def likelihood(self, sentence):
@@ -80,7 +79,7 @@ class NgramModel:
             token = sentence[i]
             context = tuple(sentence[max(0, i - self.n + 1):i])
             likelihood *= self.prob(token, context)
-        return math.log(likelihood)
+        return '{:.4f}'.format(0 if likelihood==0 else math.log(likelihood))
 
     def prob(self, token, context):
         reduced_to_context = {k: v for k, v in self.context_counts.items() if k[0] == context}
@@ -94,7 +93,7 @@ class NgramModel:
             if (context, token) in self.context_counts:
                 return (self.context_counts[(context, token)]) / (len(reduced_to_context))
             else:
-                return 1e-25
+                return 0
 
 
 class Solution:
@@ -117,7 +116,7 @@ class Solution:
             likelihood *= ((self.lambda1 * self.unigram.prob(token, tuple())) +
                            (self.lambda2 * self.bigram.prob(token, tuple(sentence[max(0, j - 1):j]))) +
                            (self.lambda3 * self.trigram.prob(token, tuple(sentence[max(0, j - 2):j]))))
-        return math.log(likelihood)
+        return '{:.4f}'.format(0 if likelihood==0 else math.log(likelihood))
 
 if __name__ == "__main__":
 
@@ -128,14 +127,14 @@ if __name__ == "__main__":
     corpus_dir = "corpus_dir"
     calc_prob = Solution(corpus_dir)
     generator = Solution(corpus_dir, Laplace=False)
-    i = calc_prob.unigram.likelihood("it is")
-    print('{:.4f}'.format(i))
-    i = calc_prob.bigram.likelihood("it is")
-    print('{:.4f}'.format(i))
-    i = calc_prob.trigram.likelihood("it is")
-    print('{:.4f}'.format(i))
-    i = calc_prob.linear_interpolation_likelihood("it is")
-    print('{:.4f}'.format(i))
+    i = calc_prob.unigram.likelihood("May the force be with you.")
+    print(i)
+    i = calc_prob.bigram.likelihood("May the force be with you.")
+    print(i)
+    i = calc_prob.trigram.likelihood("May the force be with you.")
+    print(i)
+    i = calc_prob.linear_interpolation_likelihood("May the force be with you.")
+    print(i)
     length = generator.getLengthFromPDF()
     print("the required length was " + str(length))
     with open(output_file, 'w', encoding='utf8') as f:
