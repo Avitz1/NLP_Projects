@@ -1,23 +1,18 @@
-from tokenizer import *
 import math
 import time
 import random
-# Define your classes here #
-
+from tokenizer import *
 class NgramModel:
-    def __init__(self, corpus_dir, n, add_begin_end_tokens=True, Laplace=True):
+    def __init__(self, corpus_dir, n):
         self.n = n
         self.context_counts = {}
         self.vocab = set()
         self.sentences = []
-        self.Laplace = Laplace
-        self.add_begin_end_tokens = add_begin_end_tokens
         self.corpus_dir = corpus_dir
         self.build()
-        self.laplace = Laplace
 
     def build(self):
-        corpus = Corpus(corpus_dir, self.add_begin_end_tokens)
+        corpus = Corpus(corpus_dir)
         self.sentences = corpus.list_sentences()
         for sentence in self.sentences:
             for i in range(1 if self.n == 1 else 0, len(sentence)):
@@ -39,26 +34,31 @@ class NgramModel:
         else:
             return []
 
-    def random_text(self, token_count, context=tuple()):
+    def random_text(self, token_count, context):
         text = []
         opening_quotes = 1
         for i in range(token_count):
             next_token = self.random_token(context)
             if next_token == []:
+                if text[0] and text[0][0].isalpha():
+                    text[0] = text[0][0].upper() + text[0][1:]
                 return ' '.join(text)
-            if len(text) and len(next_token) and len(text[-1]):
-                if next_token[0] == "{" or next_token[0] == "[" or next_token[0] == "(":
+            if len(text) and len(text[-1]) and len(next_token):
+                if next_token == "{" or next_token == "[" or next_token == "(":
                     text.append(next_token)
-                elif next_token[0] == '.':
+                elif next_token == ")" or next_token == "]" or next_token == "}":
                     text[-1] = text[-1] + next_token
-                elif next_token[0] == "\"":
+                elif next_token == ".":
+                    text[-1] = text[-1] + next_token
+                elif next_token == "\"":
                     if opening_quotes:
                         text.append(next_token)
                         opening_quotes = 0
                     else:
                         text[-1] = text[-1] + next_token
                         opening_quotes = 1
-                elif text[-1][-1] == "'" or text[-1][-1] == "-" or text[-1][-1] == "–" or text[-1][-1] == "\"" or (next_token[0] in string.punctuation and len(next_token)==1 and text[-1][-1] not in string.punctuation):
+                elif (text[-1][-1] == "'" and next_token == "s") or text[-1][-1] == "-" or text[-1][-1] == "–" or (not opening_quotes and text[-1][-1] == "\"") \
+                        or (next_token[0] in string.punctuation and next_token != "$" and len(next_token)==1 and text[-1][-1] not in string.punctuation):
                     text[-1] = text[-1] + next_token
                 elif len(text) != 0 and len(next_token) > 0 and (text[-1] == "{" or text[-1] == "[" or text[-1] == "("):
                     text[-1] = text[-1] + next_token
@@ -68,39 +68,42 @@ class NgramModel:
                 text.append(next_token)
             if self.n > 1:
                 context = context[len(context)-1:] + tuple([next_token]) if self.n == 3 else tuple([next_token])
-        if text[0].isalpha():
+        if text[0][0].isalpha():
             text[0] = text[0][0].upper() + text[0][1:]
         return ' '.join(text)
 
-    def likelihood(self, sentence):
+    def likelihood(self, sentence, Laplace=True):
         likelihood = 1
-        sentence = Sentence(sentence, self.add_begin_end_tokens).list_tokens()
+        sentence = Sentence(sentence, 0).list_tokens()
         for i in range(1, len(sentence)):
             token = sentence[i]
             context = tuple(sentence[max(0, i - self.n + 1):i])
-            likelihood *= self.prob(token, context)
+            likelihood *= self.prob(token, context, Laplace)
         return '{:.4f}'.format(0 if likelihood==0 else math.log(likelihood))
 
-    def prob(self, token, context):
+    def prob(self, token, context, Laplace=True):
         reduced_to_context = {k: v for k, v in self.context_counts.items() if k[0] == context}
-        reduced_to_context = [k for k, v in reduced_to_context.items() for i in range(v)]
-        if self.laplace:
+        sample_space = 0
+        for k, v in reduced_to_context.items():
+            sample_space += v
+        # reduced_to_context = [k for k, v in reduced_to_context.items() for i in range(v)]
+        if Laplace:
             if (context, token) in self.context_counts:
-                return (1 + self.context_counts[(context, token)]) / (len(reduced_to_context) + len(self.vocab))
+                return (1 + self.context_counts[(context, token)]) / (sample_space + len(self.vocab))
             else:
-                return 1 / (len(reduced_to_context) + len(self.vocab))
+                return 1 / (sample_space + len(self.vocab))
         else:
             if (context, token) in self.context_counts:
-                return (self.context_counts[(context, token)]) / (len(reduced_to_context))
+                return (self.context_counts[(context, token)]) / sample_space
             else:
                 return 0
 
 
 class Solution:
-    def __init__(self, corpus_dir, lambda3 = 0.5, lambda2 = 0.3, lambda1 = 0.2, add_begin_end_tokens=True, Laplace=True):
-        self.unigram = NgramModel(corpus_dir, 1, add_begin_end_tokens, Laplace)
-        self.bigram = NgramModel(corpus_dir, 2, add_begin_end_tokens, Laplace)
-        self.trigram = NgramModel(corpus_dir, 3, add_begin_end_tokens, Laplace=False)
+    def __init__(self, corpus_dir, lambda3=0.5, lambda2=0.35, lambda1=0.15):
+        self.unigram = NgramModel(corpus_dir, 1)
+        self.bigram = NgramModel(corpus_dir, 2,)
+        self.trigram = NgramModel(corpus_dir, 3)
         self.lambda1 = lambda1
         self.lambda2 = lambda2
         self.lambda3 = lambda3
@@ -115,40 +118,40 @@ class Solution:
             token = sentence[j]
             likelihood *= ((self.lambda1 * self.unigram.prob(token, tuple())) +
                            (self.lambda2 * self.bigram.prob(token, tuple(sentence[max(0, j - 1):j]))) +
-                           (self.lambda3 * self.trigram.prob(token, tuple(sentence[max(0, j - 2):j]))))
+                           (self.lambda3 * self.trigram.prob(token, tuple(sentence[max(0, j - 2):j]), Laplace=False)))
         return '{:.4f}'.format(0 if likelihood==0 else math.log(likelihood))
 
 if __name__ == "__main__":
 
     start_time = time.time()
-    # corpus_dir = argv[1]    # The directory in which the Wiki files are, full pathname
-    # output_file = argv[2]   # The text file that the corpus is written onto, full pathname
-    output_file = "generated.txt"
-    corpus_dir = "corpus_dir"
-    calc_prob = Solution(corpus_dir)
-    generator = Solution(corpus_dir, Laplace=False)
-    i = calc_prob.unigram.likelihood("May the force be with you.")
-    print(i)
-    i = calc_prob.bigram.likelihood("May the force be with you.")
-    print(i)
-    i = calc_prob.trigram.likelihood("May the force be with you.")
-    print(i)
-    i = calc_prob.linear_interpolation_likelihood("May the force be with you.")
-    print(i)
-    length = generator.getLengthFromPDF()
-    print("the required length was " + str(length))
+    corpus_dir = argv[1]    # The directory in which the Wiki files are, full pathname
+    output_file = argv[2]   # The text file that the corpus is written onto, full pathname
+    models = Solution(corpus_dir)
+
+    sentences = ["May the Force be with you.", "I’m going to make him an offer he can’t refuse.",
+                 "Ogres are like onions.", "You’re tearing me apart, Lisa!", "I live my life one quarter at a time."]
+    pred_models = {"Unigram Model:": models.unigram, "Bigram Model:": models.bigram, "Trigram Model:": models.trigram,}
+    gen_models = {"Unigram Model:": models.unigram, "Bigram Model:": models.bigram, "Trigram Model:": models.trigram}
+
     with open(output_file, 'w', encoding='utf8') as f:
         sys.stdout = f
-        print("now unigrams:")
-        for i in range(10):
-            print(generator.unigram.random_text(length))
-        print("now bigrams:")
-        for i in range(10):
-            print(generator.bigram.random_text(length, ('<s>',)))
-        print("now trigrams:")
-        for i in range(10):
-            print(generator.trigram.random_text(length, ('<s>',)))
+
+        print("\n*** Sentence Predictions ***\n\n")
+
+        for model in pred_models:
+            print("\n" + model + "\n")
+            for sentence in sentences:
+                if model == "Trigram Model:":
+                    print(sentence + "\n" + models.linear_interpolation_likelihood(sentence))
+                else:
+                    print(sentence + "\n" + pred_models[model].likelihood(sentence))
+
+        print("\n\n\n*** Random Sentence Generation ***\n\n")
+
+        for model in gen_models:
+            print("\n" + model + "\n")
+            context = () if model == "Unigram Model:" else ('<s>',)
+            for i in range(15):
+                print(gen_models[model].random_text(models.getLengthFromPDF(), context))
         sys.stdout = sys.__stdout__
         f.close()
-    print("--- %s seconds ---" % (time.time() - start_time))
-
