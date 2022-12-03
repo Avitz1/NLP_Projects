@@ -2,6 +2,7 @@ import math
 import time
 import random
 from tokenizer import *
+
 class NgramModel:
     def __init__(self, corpus_dir, n):
         self.n = n
@@ -123,9 +124,9 @@ class Solution:
 
 if __name__ == "__main__":
 
-    start_time = time.time()
     corpus_dir = argv[1]    # The directory in which the Wiki files are, full pathname
     output_file = argv[2]   # The text file that the corpus is written onto, full pathname
+
     models = Solution(corpus_dir)
 
     sentences = ["May the Force be with you.", "I’m going to make him an offer he can’t refuse.",
