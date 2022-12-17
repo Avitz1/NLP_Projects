@@ -169,7 +169,7 @@ if __name__ == "__main__":
     output_file = "output0.txt"
     corpus_dir = "corpus_dir"
 
-    corpus = Corpus(corpus_dir, add_begin_end_tokens=True)
+    corpus = Corpus(corpus_dir)
 
 
     with open(output_file, 'w', encoding='utf8') as f:
