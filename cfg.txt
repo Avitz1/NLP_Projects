@@ -1,0 +1,34 @@
+1.0 S -> NP VP
+0.7 NP -> D N
+0.3 NP -> NP PP
+1.0 PP -> P NP
+0.35 VP -> V NP
+0.35 VP -> V PP
+0.2 VP -> VP PP
+0.1 VP -> V S
+0.25 D -> a
+0.25 D -> the
+0.3 D -> this
+0.1 D -> that
+0.1 D -> some
+0.1 N -> flight
+0.1 N -> city
+0.1 N -> meal
+0.1 N -> airport
+0.1 N -> pilot
+0.1 N -> stop
+0.1 N -> cake
+0.1 N -> cream
+0.1 N -> passenger
+0.1 N -> stops
+0.2 P -> from
+0.2 P -> in
+0.2 P -> on
+0.3 P -> to
+0.1 P -> with
+0.1 V -> flies
+0.3 V -> goes
+0.15 V -> left
+0.15 V -> says
+0.1 V -> serves
+0.2 V -> stops
