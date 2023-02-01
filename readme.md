@@ -34,6 +34,7 @@ We implemented a probabilistic version of the CKY algorithm to find the most pro
 A tokenizer was implemented to tokenize a given text. 
 Tokenization is the process of breaking a stream of text up into words, phrases, symbols, or other meaningful elements called tokens. The list of tokens becomes input for further processing such as parsing or text mining.
 A piece of text like "I haven't been to the USA in the last 1.5 years, have you?" can be tokenized into the following tokens:   
-["I", "haven't", "been", "to", "the", "USA", "in", "the", "last", "1.5", "years", ",", "have", "you", "?"].
+["I", "haven't", "been", "to", "the", "USA", "in", "the", "last", "1.5", "years", ",", "have", "you", "?"]
+
 This process is useful for many NLP tasks such as part-of-speech tagging, named entity recognition, and machine translation, because a machine can only understand numbers, not words or sentences in their natural form.
 
